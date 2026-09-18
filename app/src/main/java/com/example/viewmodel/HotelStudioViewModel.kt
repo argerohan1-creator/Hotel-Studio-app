@@ -18,6 +18,9 @@ import com.example.data.remote.DigitalTagSize
 import com.example.data.remote.DigitalTagTheme
 import com.example.data.remote.HotelStudioAiService
 import com.example.data.repository.HotelStudioRepository
+import com.example.data.model.ConnectedDigitalTag
+import com.example.data.model.BuffetCounterGroup
+import com.example.data.model.generateDefaultTagFleet
 import com.example.ui.theme.TemplateSkins
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +30,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.util.CulinaryAgent
 
@@ -159,6 +163,16 @@ class HotelStudioViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _lastCloudSyncResult = MutableStateFlow<CloudSyncResult?>(null)
     val lastCloudSyncResult: StateFlow<CloudSyncResult?> = _lastCloudSyncResult.asStateFlow()
+
+    // Connected Digital Tags Fleet Dashboard
+    private val _connectedDigitalTags = MutableStateFlow<List<ConnectedDigitalTag>>(generateDefaultTagFleet())
+    val connectedDigitalTags: StateFlow<List<ConnectedDigitalTag>> = _connectedDigitalTags.asStateFlow()
+
+    private val _tagDashboardFilter = MutableStateFlow("ALL") // "ALL", "CTR-01", "LOW_BATTERY", "SOLD_OUT", etc.
+    val tagDashboardFilter: StateFlow<String> = _tagDashboardFilter.asStateFlow()
+
+    private val _buffetSignageViewMode = MutableStateFlow("studio") // "studio" or "digital_dashboard"
+    val buffetSignageViewMode: StateFlow<String> = _buffetSignageViewMode.asStateFlow()
 
     private val _activeModule = MutableStateFlow("dashboard") // "dashboard", "buffet", "prospectus", "recipes", "analytics", "settings", "helpdesk", "terms", "privacy", "about"
     val activeModule: StateFlow<String> = _activeModule.asStateFlow()
@@ -406,6 +420,145 @@ class HotelStudioViewModel(application: Application) : AndroidViewModel(applicat
             _cloudSyncLogs.value = listOf(result) + _cloudSyncLogs.value.take(19)
             showToast(result.message)
         }
+    }
+
+    fun setBuffetSignageViewMode(mode: String) {
+        _buffetSignageViewMode.value = mode
+    }
+
+    fun setTagDashboardFilter(filter: String) {
+        _tagDashboardFilter.value = filter
+    }
+
+    fun remoteFlashFleetTagLed(tagId: String) {
+        _connectedDigitalTags.value = _connectedDigitalTags.value.map {
+            if (it.tagId == tagId) it.copy(isFlashingLed = true) else it
+        }
+        remoteFlashTagLed(tagId)
+        viewModelScope.launch {
+            delay(4000)
+            _connectedDigitalTags.value = _connectedDigitalTags.value.map {
+                if (it.tagId == tagId) it.copy(isFlashingLed = false) else it
+            }
+        }
+    }
+
+    fun toggleFleetTagSoldOut(tagId: String) {
+        val willBeSoldOut = !_soldOutTags.value.contains(tagId)
+        _connectedDigitalTags.value = _connectedDigitalTags.value.map {
+            if (it.tagId == tagId) it.copy(isSoldOut = willBeSoldOut, lastUpdatedTimestamp = System.currentTimeMillis()) else it
+        }
+        toggleTagSoldOut(tagId)
+    }
+
+    fun forceRefreshFleetTag(tagId: String) {
+        val now = System.currentTimeMillis()
+        _connectedDigitalTags.value = _connectedDigitalTags.value.map {
+            if (it.tagId == tagId) {
+                val newBattery = if (it.batteryPct > 15) it.batteryPct - 1 else it.batteryPct
+                it.copy(lastUpdatedTimestamp = now, batteryPct = newBattery, syncStatus = "ONLINE_SYNCED")
+            } else it
+        }
+        forceRefreshTag(tagId)
+    }
+
+    fun syncCounterTags(counterCode: String) {
+        val now = System.currentTimeMillis()
+        val tagsToSync = _connectedDigitalTags.value.filter { it.counterCode == counterCode }
+        if (tagsToSync.isEmpty()) return
+
+        _connectedDigitalTags.value = _connectedDigitalTags.value.map {
+            if (it.counterCode == counterCode) {
+                it.copy(lastUpdatedTimestamp = now, syncStatus = "ONLINE_SYNCED")
+            } else it
+        }
+
+        viewModelScope.launch {
+            _isCloudSyncing.value = true
+            val payloads = tagsToSync.map { tag ->
+                DigitalTagPayload(
+                    tagId = tag.tagId,
+                    stationName = tag.counterName,
+                    dishId = tag.dishId,
+                    dishName = tag.dishName,
+                    dishDesc = tag.dishDesc,
+                    calories = tag.calories,
+                    isVeg = tag.isVeg,
+                    allergens = tag.allergens,
+                    screenSize = tag.screenSize.name,
+                    theme = tag.theme.name,
+                    isSoldOut = tag.isSoldOut,
+                    batteryPct = tag.batteryPct,
+                    signalDbm = tag.signalDbm
+                )
+            }
+            val result = digitalTagCloudService.syncBatchTags(_cloudConfig.value, payloads)
+            _isCloudSyncing.value = false
+            _lastCloudSyncResult.value = result
+            _cloudSyncLogs.value = listOf(result) + _cloudSyncLogs.value.take(19)
+            val name = tagsToSync.firstOrNull()?.counterName ?: counterCode
+            showToast("Refreshed ${tagsToSync.size} digital tags on $name")
+        }
+    }
+
+    fun broadcastRefreshAllCounters() {
+        val now = System.currentTimeMillis()
+        _connectedDigitalTags.value = _connectedDigitalTags.value.map { tag ->
+            val newBattery = if (tag.batteryPct > 15) tag.batteryPct - 1 else tag.batteryPct
+            tag.copy(lastUpdatedTimestamp = now, batteryPct = newBattery, syncStatus = "ONLINE_SYNCED")
+        }
+
+        viewModelScope.launch {
+            _isCloudSyncing.value = true
+            val payloads = _connectedDigitalTags.value.map { tag ->
+                DigitalTagPayload(
+                    tagId = tag.tagId,
+                    stationName = tag.counterName,
+                    dishId = tag.dishId,
+                    dishName = tag.dishName,
+                    dishDesc = tag.dishDesc,
+                    calories = tag.calories,
+                    isVeg = tag.isVeg,
+                    allergens = tag.allergens,
+                    screenSize = tag.screenSize.name,
+                    theme = tag.theme.name,
+                    isSoldOut = tag.isSoldOut,
+                    batteryPct = tag.batteryPct,
+                    signalDbm = tag.signalDbm
+                )
+            }
+            val result = digitalTagCloudService.syncBatchTags(_cloudConfig.value, payloads)
+            _isCloudSyncing.value = false
+            _lastCloudSyncResult.value = result
+            _cloudSyncLogs.value = listOf(result) + _cloudSyncLogs.value.take(19)
+            showToast("✨ Broadcasted real-time refresh to all 7 buffet counters (${payloads.size} digital tags)")
+        }
+    }
+
+    fun updateTagBattery(tagId: String, newPct: Int) {
+        val clamped = newPct.coerceIn(5, 100)
+        _connectedDigitalTags.value = _connectedDigitalTags.value.map {
+            if (it.tagId == tagId) it.copy(batteryPct = clamped) else it
+        }
+        showToast("Updated Tag [$tagId] battery to $clamped%")
+    }
+
+    fun loadDishIntoPreviewFromTag(tag: ConnectedDigitalTag) {
+        val dish = DishEntity(
+            id = tag.dishId,
+            name = tag.dishName,
+            desc = tag.dishDesc,
+            cals = tag.calories,
+            type = if (tag.isVeg) "veg" else "nonveg",
+            category = tag.counterCategory,
+            allergens = tag.allergens
+        )
+        selectDish(dish)
+        setActiveTagStation(tag.counterName)
+        setActiveTagId(tag.tagId)
+        setTagPreviewMode("digital")
+        setBuffetSignageViewMode("studio")
+        showToast("Loaded \"${tag.dishName}\" into Master Digital Tag Preview")
     }
 
     fun saveActiveDish() {

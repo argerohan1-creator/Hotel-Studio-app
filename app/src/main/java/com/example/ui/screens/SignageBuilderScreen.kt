@@ -135,6 +135,16 @@ fun SignageBuilderScreen(viewModel: HotelStudioViewModel, modifier: Modifier = M
                     }
                 }
             )
+            Tab(
+                selected = activeTab == 3,
+                onClick = { activeTab = 3 },
+                text = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(vertical = 8.dp)) {
+                        Icon(Icons.Default.Sensors, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text("Tag Fleet", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            )
         }
 
         when (activeTab) {
@@ -436,11 +446,18 @@ fun SignageBuilderScreen(viewModel: HotelStudioViewModel, modifier: Modifier = M
                     Spacer(Modifier.height(40.dp))
                 }
             }
+            3 -> {
+                BuffetDigitalTagsDashboard(
+                    viewModel = viewModel,
+                    onBackToStudio = { activeTab = 0 },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 
         // Floating Quick Preview Button
-        if (activeTab != 2) {
+        if (activeTab != 2 && activeTab != 3) {
             FloatingActionButton(
                 onClick = { showQuickPreview = true },
                 modifier = Modifier
