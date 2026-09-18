@@ -1,0 +1,3 @@
+#!/bin/bash
+sed -i 's/if (profilePictureUri == null && it.avatarUri != null) profilePictureUri = Uri.parse(it.avatarUri)/if (profilePictureUri == null \&\& \!it.avatarUri.isNullOrEmpty()) profilePictureUri = Uri.parse(it.avatarUri)/' app/src/main/java/com/example/ui/screens/SettingsHubScreen.kt
+sed -i 's/if (establishmentLogoUri == null && it.customLogoBase64 != null) establishmentLogoUri = Uri.parse(it.customLogoBase64)/if (establishmentLogoUri == null \&\& \!it.customLogoBase64.isNullOrEmpty()) establishmentLogoUri = Uri.parse(it.customLogoBase64)/' app/src/main/java/com/example/ui/screens/SettingsHubScreen.kt

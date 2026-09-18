@@ -1,0 +1,82 @@
+#!/bin/bash
+awk '
+/colors = OutlinedTextFieldDefaults.colors\(focusedBorderColor = MaterialTheme.colorScheme.primary\)/ {
+    print $0
+    count++
+    if (count == 2) {
+        # After the second text field (establishment)
+        print "                "
+        print "                Box(modifier = Modifier.fillMaxWidth()) {"
+        print "                    OutlinedButton("
+        print "                        onClick = { countryDropdownExpanded = true },"
+        print "                        modifier = Modifier.fillMaxWidth(),"
+        print "                        shape = RoundedCornerShape(10.dp)"
+        print "                    ) {"
+        print "                        Text(text = countryInput, fontSize = 11.sp, fontWeight = FontWeight.Bold)"
+        print "                    }"
+        print "                    DropdownMenu("
+        print "                        expanded = countryDropdownExpanded,"
+        print "                        onDismissRequest = { countryDropdownExpanded = false }"
+        print "                    ) {"
+        print "                        countries.forEach { c ->"
+        print "                            DropdownMenuItem("
+        print "                                text = { Text(c, fontSize = 12.sp) },"
+        print "                                onClick = {"
+        print "                                    countryInput = c"
+        print "                                    countryDropdownExpanded = false"
+        print "                                }"
+        print "                            )"
+        print "                        }"
+        print "                    }"
+        print "                }"
+        print "                "
+        print "                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth()) {"
+        print "                    Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {"
+        print "                        Text(\"Profile Picture\", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)"
+        print "                        Spacer(modifier = Modifier.height(8.dp))"
+        print "                        Box("
+        print "                            modifier = Modifier"
+        print "                                .size(80.dp)"
+        print "                                .clip(CircleShape)"
+        print "                                .background(MaterialTheme.colorScheme.surfaceVariant)"
+        print "                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), CircleShape)"
+        print "                                .clickable { profileLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },"
+        print "                            contentAlignment = Alignment.Center"
+        print "                        ) {"
+        print "                            if (profilePictureUri != null) {"
+        print "                                AsyncImage(model = profilePictureUri, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())"
+        print "                            } else {"
+        print "                                Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)"
+        print "                            }"
+        print "                        }"
+        print "                    }"
+        print "                    "
+        print "                    Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {"
+        print "                        Text(\"Establishment Logo\", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)"
+        print "                        Spacer(modifier = Modifier.height(8.dp))"
+        print "                        Box("
+        print "                            modifier = Modifier"
+        print "                                .size(80.dp)"
+        print "                                .clip(RoundedCornerShape(8.dp))"
+        print "                                .background(MaterialTheme.colorScheme.surfaceVariant)"
+        print "                                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(8.dp))"
+        print "                                .clickable { logoLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },"
+        print "                            contentAlignment = Alignment.Center"
+        print "                        ) {"
+        print "                            if (establishmentLogoUri != null) {"
+        print "                                AsyncImage(model = establishmentLogoUri, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())"
+        print "                            } else {"
+        print "                                Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)"
+        print "                            }"
+        print "                        }"
+        print "                    }"
+        print "                }"
+    }
+    next
+}
+/viewModel.saveUserProfile\(usernameInput, establishmentInput\)/ {
+    print "                viewModel.saveUserProfile(usernameInput, establishmentInput, profilePictureUri?.toString(), establishmentLogoUri?.toString(), countryInput)"
+    next
+}
+1
+' app/src/main/java/com/example/ui/screens/SettingsHubScreen.kt > temp2.kt && mv temp2.kt app/src/main/java/com/example/ui/screens/SettingsHubScreen.kt

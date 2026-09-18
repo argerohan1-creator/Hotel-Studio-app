@@ -1,0 +1,3 @@
+#!/bin/bash
+sed -i 's/var profilePictureUri by remember { mutableStateOf<Uri?>(userProfile?.avatarUri?.let { Uri.parse(it) }) }/var profilePictureUri by remember { mutableStateOf<Uri?>(userProfile?.avatarUri?.takeIf { it.isNotEmpty() }?.let { Uri.parse(it) }) }/' app/src/main/java/com/example/ui/screens/SettingsHubScreen.kt
+sed -i 's/var establishmentLogoUri by remember { mutableStateOf<Uri?>(userProfile?.customLogoBase64?.let { Uri.parse(it) }) }/var establishmentLogoUri by remember { mutableStateOf<Uri?>(userProfile?.customLogoBase64?.takeIf { it.isNotEmpty() }?.let { Uri.parse(it) }) }/' app/src/main/java/com/example/ui/screens/SettingsHubScreen.kt

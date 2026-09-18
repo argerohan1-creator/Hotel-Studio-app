@@ -1,0 +1,8 @@
+{
+  "name": "Hotel Studio",
+  "description": "Enterprise F&B Suite for Daily Buffet Menu Builder, Buffet Tagging, 100k+ Recipe Bank, and FSSAI Compliance",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
